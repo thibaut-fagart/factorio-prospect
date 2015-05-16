@@ -1,0 +1,9 @@
+{
+  "name": "prospect",
+  "version": "0.1.0",
+  "title": "Prospect",
+  "author": "Thibaut Fagart",
+  "homepage": "https://github.com/thibaut-fagart/prospect",
+  "description": "This mod gives you a Geology lab allowing to build prospection maps that point to the resources in the vicinity.",
+  "dependencies": ["base", "? bobores"]
+}

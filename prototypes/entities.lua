@@ -4,8 +4,10 @@ data:extend({
         name = "geology-lab",
         icon = "__base__/graphics/icons/assembling-machine-1.png",
         flags = { "goes-to-quickbar" },
---        subgroup = "bob-assembly-machine",
-        order = "c[geology-lab]",
+       category="geology",
+        group = "geology",
+        subgroup ="geology-labs",
+        order = "a[geology-lab]",
         place_result = "geology-lab",
         stack_size = 50
     },
@@ -68,16 +70,6 @@ data:extend({
     },
 
 })
-data:extend(
-{
-  {
-    type = "item-subgroup",
-    name = "prospection-maps",
-    group = "geology",
-    order = "e-b",
-  },
-}
-)
 for _,resource in ipairs(glob.oretypes) do
     if nil ~= data.raw.resource[resource] then
         data:extend({

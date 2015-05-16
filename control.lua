@@ -12,9 +12,9 @@ game.oninit(function()
 end)
 game.onload(function()
     initGeologyGlobals()
-    if isdebug and game.player.getinventory(defines.inventory.playermain).getcontents()["copper-ore-map"] == nil then
-        game.player.insert{name="copper-ore-map", count=10 }
-    end
+--    if isdebug and game.player.getinventory(defines.inventory.playermain).getcontents()["copper-ore-map"] == nil then
+--        game.player.insert{name="copper-ore-map", count=10 }
+--    end
 end)
 
 

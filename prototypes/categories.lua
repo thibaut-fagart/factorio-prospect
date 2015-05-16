@@ -7,8 +7,20 @@ data:extend({
     {
         type = "item-group",
         name = "geology",
-        order = "aaa-a",
-        inventory_order = "c-a",
+        order = "g[geology]-a",
+        inventory_order = "g[geology]-a",
         icon = "__prospect__/graphics/technology/geology.png",
+    },
+    {
+      type = "item-subgroup",
+      name = "prospection-maps",
+      group = "geology",
+      order = "m",
+    },
+    {
+      type = "item-subgroup",
+      name = "geology-labs",
+      group = "geology",
+      order = "a",
     },
 })

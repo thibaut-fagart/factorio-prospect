@@ -2,7 +2,8 @@ data:extend({
     {
         type = "recipe",
         name = "geology-lab",
-        category = "geology",
+        group="geology",
+        subgroup = "geology-labs",
         enabled = "false",
         ingredients =
         {
@@ -17,7 +18,7 @@ for _, resource in ipairs(glob.oretypes) do
                 type = "recipe",
                 name = ""..resource .. "-map",
                 category = "geology",
-                --        subgroup = "geology",
+                subgroup = "prospection-maps",
                 enabled = "false",
                 ingredients =
                 {

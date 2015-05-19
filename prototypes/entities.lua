@@ -79,7 +79,8 @@ for _,resource in ipairs(glob.oretypes) do
                 icon = "__prospect__/graphics/icons/"..resource.."-map.png",
                 flags = { "goes-to-quickbar" },
                 subgroup = "prospection-maps",
-                order = "c[geology-lab]",
+                order =  data.raw.resource[resource].order,
+--                "c[geology-lab]",
                 place_result = ""..resource.."-map-entity",
                 stack_size = 50
             },

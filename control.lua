@@ -183,11 +183,15 @@ function addProspectionResults(deposit)
         table.insert(glob.prospectionresults, deposit)
         debugDepositTiles(getDepositTiles(deposit.position, deposit.name))
 --        force showing the results is they were not shown
-        if  glob.flags.resultsVisible == 0 then  glob.flags.resultsVisible = 1 end
     else
         debug("deposit already prospected")
     end
+--    if the UI was previously closed, make it visible
+    if glob.flags.resultsVisible == 0 then
+        glob.flags.resultsVisible = 1
+    end
     if isdebug then l:dump("logs/deposit_".. game.tick ) end
+    
     showProspectionGUI()
 end
 function addFailedProspection(resource, position)
@@ -270,6 +274,7 @@ game.onevent(defines.events.onguiclick, function(event)
         showProspectionGUI()
     elseif event.element.name == "geologyClose" then
         game.player.gui.left.geologyFrame.destroy()
+--        glob.prospectionresults = {}
    		glob.flags.resultsVisible = 0
     end
 end)

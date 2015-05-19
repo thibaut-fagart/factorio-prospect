@@ -2,8 +2,12 @@ if glob == nil then
     glob = {}
 end
 glob.oretypes = {
+    "stone",
     "iron-ore",
     "copper-ore",
+    "coal",
+    "crude-oil",
+    --[[Bob's ores]]
     "tin-ore",
     "tungsten-ore",
     "gold-ore",
@@ -15,6 +19,9 @@ glob.oretypes = {
     "quartz",
     "cobalt-ore",
     "nickel-ore",
+    "gems",
+    --[[Dytech]]
+    "ardite-ore",
 }
 
 maxProspectionRadius = 10000

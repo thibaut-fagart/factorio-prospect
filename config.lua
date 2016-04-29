@@ -19,9 +19,9 @@ glob.oretypes = {
     "quartz",
     "cobalt-ore",
     "nickel-ore",
-    "gems",
+    "gem-ore",
     --[[Dytech]]
     "ardite-ore",
 }
 
-maxProspectionRadius = 10000
+maxProspectionRadius = 1000

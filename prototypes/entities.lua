@@ -15,11 +15,11 @@ data:extend({
         type = "assembling-machine",
         name = "geology-lab",
         icon = "__base__/graphics/icons/assembling-machine-1.png",
-        flags = { "placeable-neutral", "placeable-player", "player-creation" },
+        flags = {"placeable-neutral", "placeable-player", "player-creation"},
         minable = { hardness = 0.2, mining_time = 0.5, result = "geology-lab" },
         max_health = 200,
         corpse = "big-remnants",
-        dying_explosion = "huge-explosion",
+        dying_explosion = "medium-explosion",
         resistances =
         {
             {
@@ -27,18 +27,18 @@ data:extend({
                 percent = 70
             }
         },
-        collision_box = { { -1.2, -1.2 }, { 1.2, 1.2 } },
-        selection_box = { { -1.5, -1.5 }, { 1.5, 1.5 } },
+        collision_box = {{-1.2, -1.2}, {1.2, 1.2}},
+        selection_box = {{-1.5, -1.5}, {1.5, 1.5}},
         fast_replaceable_group = "geology",
         animation =
         {
             filename = "__base__/graphics/entity/assembling-machine-1/assembling-machine-1.png",
-            priority = "high",
+            priority="high",
             width = 99,
             height = 102,
             frame_count = 32,
             line_length = 8,
-            shift = { 0.25, -0.1 }
+            shift = {0.25, -0.1}
         },
         crafting_categories = { "geology" },
         crafting_speed = 0.5,
@@ -68,7 +68,29 @@ data:extend({
             apparent_volume = 1.5,
         }
     },
-
+    {
+    		type = "container",
+    		name = "overlay",
+    		icon = "__prospect__/graphics/overlay.png",
+    		flags = {"placeable-neutral", "player-creation"},
+    		minable = {mining_time = 1},
+    		order = "b[overlay]",
+    		collision_mask = {"resource-layer"},
+    		max_health = 100,
+    		corpse = "small-remnants",
+    		resistances ={{type = "fire",percent = 80}},
+    		collision_box = {{-0.35, -0.35}, {0.35, 0.35}},
+    		selection_box = {{-0.5, -0.5}, {0.5, 0.5}},
+    		inventory_size = 1,
+    		picture =
+    		{
+    			filename = "__prospect__/graphics/overlay.png",
+    			priority = "extra-high",
+    			width = 32,
+    			height = 32,
+    			shift = {0.0, 0.0}
+    		}
+    	},
 })
 for _,resource in ipairs(glob.oretypes) do
     if nil ~= data.raw.resource[resource] then

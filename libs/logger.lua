@@ -12,12 +12,13 @@ function Logger:log(str)
   local run_time_minutes = math.floor(run_time_s/60)
   local run_time_hours = math.floor(run_time_minutes/60)
   self.log_buffer[#self.log_buffer + 1] = string.format("%02d:%02d:%02d: %s\r\n", run_time_hours, run_time_minutes % 60, run_time_s % 60, str)
+  if #self.log_buffer > 500 then self:dump() end
 end
 
 function Logger:dump(file_name)
   if #self.log_buffer == 0 then return false end
   file_name = file_name or "logs/"..self.prefix..game.tick..".log"
-  game.makefile(file_name, table.concat(self.log_buffer))
+  game.write_file(file_name, table.concat(self.log_buffer))
   self.log_buffer = {}
   return true
 end

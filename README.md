@@ -9,4 +9,9 @@ It also displays the direction and distance for failed prospections, so as to av
 
 Disclaimer : the mod should be mainly complete from a technical perspective, but not gameplay/balancing wise. Graphics and research/production costs are still placeholders
 
-Credits : this mod reuses code fragments from ResourceMonitor (for the GUI and deposits handling) 
+Credits : this mod reuses code fragments from ResourceMonitor (for the GUI and deposits handling)
+
+Changes
+- 1.2 now triggers chunks generation if required, and waits for chunks to be generated.
+  * 0.12 compatible
+- 1.1 initial version

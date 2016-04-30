@@ -6,7 +6,7 @@ glob.oretypes = {
     "iron-ore",
     "copper-ore",
     "coal",
-    "crude-oil",
+--    "crude-oil", commented for now, as it's prototype can't be obtained by game.get_item_prototype, but needs game.fluid_prototypes['crude-oil']
     --[[Bob's ores]]
     "tin-ore",
     "tungsten-ore",
@@ -24,4 +24,3 @@ glob.oretypes = {
     "ardite-ore",
 }
 
-maxProspectionRadius = 1000

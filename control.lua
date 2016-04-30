@@ -3,6 +3,8 @@ require "config"
 
 local isdebug = false
 if isdebug then require "libs/debug" end
+local maxProspectionRadius = 1000
+local MAX_PROSPECT_PER_REQUEST = 30
 local CHUNK_SIZE = 32
 
 script.on_init(function()
@@ -36,6 +38,9 @@ function initGeologyGlobals()
     if glob.flags.updateFreq == nil then
         glob.flags.updateFreq = 600
     end
+    if glob.flags.prospectFreq == nil then
+        glob.flags.prospectFreq = 60
+    end
 
     if glob.running_prospections == nil then
         glob.running_prospections = {} --  {origin:position, max_chunk_radius, current_chunk_radius,requestedChunks}
@@ -43,6 +48,16 @@ function initGeologyGlobals()
     if glob.prospect_index == nil then
         glob.prospect_index = 1
     end
+    if glob.performance  == nil then
+        glob.performance = {}
+    end
+    if glob.performance.prospectCount  == nil then
+        glob.performance.prospectCount = 0
+    end
+    if glob.performance.maxProspectPerBatch  == nil then
+        glob.performance.maxProspectPerBatch = MAX_PROSPECT_PER_REQUEST
+    end
+
 end
 
 function startingItems()
@@ -55,13 +70,20 @@ function startingItems()
     game.player.insert { name = "coal", count = 100 }
     game.player.insert { name = "steel-axe", count = 10 }
     game.player.insert { name = "geology-lab", count = 10 }
-    game.player.insert { name = "copper-ore-map", count = 100 }
-    game.player.insert { name = "iron-ore-map", count = 100 }
-    game.player.insert { name = "rutile-ore-map", count = 100 }
-    game.player.insert { name = "tin-ore-map", count = 100 }
-    game.player.insert { name = "tungsten-ore-map", count = 100 }
-    game.player.insert { name = "bauxite-ore-map", count = 100 }
-    game.player.insert { name = "gem-ore-map", count = 100 }
+    game.player.insert { name = "copper-ore-map", count = 10 }
+    game.player.insert { name = "iron-ore-map", count = 10 }
+    game.player.insert { name = "rutile-ore-map", count = 10 }
+    game.player.insert { name = "tin-ore-map", count = 10 }
+    game.player.insert { name = "tungsten-ore-map", count = 10 }
+    game.player.insert { name = "bauxite-ore-map", count = 10 }
+    game.player.insert { name = "gem-ore-map", count = 10 }
+    game.player.insert { name = "gold-ore-map", count = 10 }
+    game.player.insert { name = "silver-ore-map", count = 10 }
+    game.player.insert { name = "lead-ore-map", count = 10 }
+    game.player.insert { name = "zinc-ore-map", count = 10 }
+    game.player.insert { name = "cobalt-ore-map", count = 10 }
+    game.player.insert { name = "nickel-ore-map", count = 10 }
+    game.player.insert { name = "quartz-map", count = 10 }
     game.player.insert { name = "resource-monitor", count = 1 }
 end
 
@@ -77,44 +99,24 @@ function isTableEmpty (table)
 end
 script.on_event(defines.events.on_chunk_generated, function(event)
     --    debug("chunk generated "..table.tostring(event.area))
+    glob.performance.prospectCount = 0
     local chunk = { x = event.area.left_top.x / CHUNK_SIZE, y = event.area.left_top.y / CHUNK_SIZE }
     local chunk_key = table.tostring(chunk)
-        for _,request in ipairs(glob.running_prospections) do
+        for idx,request in pairs(glob.running_prospections) do
             if request.requestedChunks[chunk_key]~=nil then
                 if isdebug then debug("checking new generated chunk " .. chunk_key) end
-                -- chunk was request for this request, check it
-                local findResults = surface().find_entities_filtered{
-                    area = {
-                        {CHUNK_SIZE*chunk.x, CHUNK_SIZE*chunk.y},
-                        {(1+CHUNK_SIZE)*chunk.x, (1+CHUNK_SIZE)*chunk.y}
-                    },
-                    name=request.prospecting }
---                debug(" #found ".. #findResults.. ' for '.. tostring(request.prospecting).. ' in chunk'.. chunk_key)
-                if #findResults >0 then
-                    glob.running_prospections[prospection.index] = nil
-                    if isdebug then debug ('prospect complete '.. prospection) end
-                    addProspectionResults(findResults[1])
-                    return
-                end
+                prospectChunk(request,{},chunk)
                 request.requestedChunks[chunk_key] = nil
             end
         end
-        -- check if some requests need to expand radius
-        for _,request in ipairs(glob.running_prospections) do
-            if isTableEmpty(request.requestedChunks) then
-                prospectNextRadius(request)
-            end
-        end
 end)
+
+-- return true (and removes request from glob) if prospect is successful
 function prospectChunk(prospectionRequest,chunksToGenerate, chunk)
     if isdebug then debug('checking chunk ' .. table.tostring(chunk)) end
+    glob.performance.prospectCount = glob.performance.prospectCount +1
     if surface().is_chunk_generated(chunk) then
---[[
-        debug('chunk is generated, prospecting ' .. table.tostring ({
-                        { CHUNK_SIZE * chunk.x, CHUNK_SIZE * chunk.y },
-                        { (1 + CHUNK_SIZE) * chunk.x, (1 + CHUNK_SIZE) * chunk.y }
-                    }))
-]]
+
         local findResults = surface().find_entities_filtered {
             area = {
                 { CHUNK_SIZE * chunk.x, CHUNK_SIZE * chunk.y },
@@ -122,8 +124,8 @@ function prospectChunk(prospectionRequest,chunksToGenerate, chunk)
             },
             name = prospectionRequest.prospecting
         }
---        debug(" found " .. #findResults .. prospectionRequest.prospecting .. 'in chunk' .. table.tostring(chunk))
         if #findResults > 0 then
+            if isdebug then debug(" found " .. #findResults ..' ' .. prospectionRequest.prospecting .. ' in chunk' .. table.tostring(chunk)) end
             glob.running_prospections[prospectionRequest.index] = nil
             addProspectionResults(findResults[1])
             return true
@@ -135,23 +137,30 @@ function prospectChunk(prospectionRequest,chunksToGenerate, chunk)
     end
     return false
 end
--- game.local_player.print('' .. #game.local_player.surface.find_entities_filtered{area={{32,-32},{64,0}},name='copper-ore'})
 
 -- first search generated chunks in the current radius (origin,current_chunk_radius)
 -- if none found register the prospection request for async prospection and request generation of next radius chunks
 function prospectNextRadius(prospectionRequest)
-    local idx = 0
     local chunksToGenerate = {empty=true }
     local Ox = prospectionRequest.originChunk.x
     local Oy = prospectionRequest.originChunk.y
-    while chunksToGenerate.empty do
+    if isdebug then debug('prospectNextRadius ' .. table.tostring(prospectionRequest)) end
+    while chunksToGenerate.empty and glob.performance.prospectCount < glob.performance.maxProspectPerBatch do
         local r = prospectionRequest.current_chunk_radius
-        if isdebug then debug('prospectNextRadius ' .. idx .. ' chunksToGenerate '.. table.tostring(chunksToGenerate) .. ',request = ' .. table.tostring(prospectionRequest)) end
+        if isdebug then debug('prospectNextRadius ' .. r .. ' chunksToGenerate '.. table.tostring(chunksToGenerate) .. ',request = ' .. table.tostring(prospectionRequest)) end
         if r == 0 then
             prospectChunk(prospectionRequest, chunksToGenerate,  { x = Ox, y = Oy })
+            prospectionRequest.current_chunk_radius  = 1
         else
             if isdebug then  debug('iterating ' .. -r .. ' to ' .. r -1) end
-            for i = -r, r-1 do
+            local start = prospectionRequest.currentRadiusProgress
+            if start == nil then
+                start = -r
+                prospectionRequest.currentRadiusProgress = start
+            else
+                if isdebug then debug("resuming radius from " .. start) end
+            end
+            for i = start, r-1 do
                 local chunk
                 chunk = { x = Ox + i, y = Oy + r }
                 if prospectChunk(prospectionRequest, chunksToGenerate, chunk) then return end
@@ -161,15 +170,23 @@ function prospectNextRadius(prospectionRequest)
                 if prospectChunk(prospectionRequest, chunksToGenerate, chunk) then return end
                 chunk = { x = Ox - r, y = Oy + i }
                 if prospectChunk(prospectionRequest, chunksToGenerate, chunk) then return end
+                prospectionRequest.currentRadiusProgress = i+1
+                if glob.performance.prospectCount >= glob.performance.maxProspectPerBatch then
+                    if isdebug then debug("pausing, maxProspectPerBatch reached")end
+                    break
+                end
+            end
+            if prospectionRequest.currentRadiusProgress >= r-1 then
+                if isdebug then debug ("radius complete, expanding, resetting currentRadius") end
+                prospectionRequest.current_chunk_radius = prospectionRequest.current_chunk_radius + 1
+                prospectionRequest.currentRadiusProgress = nil
             end
         end
-        prospectionRequest.current_chunk_radius = prospectionRequest.current_chunk_radius + 1
-        idx = idx + 1
---        l:dump("prospectNextRadius_" .. idx)
     end
+    if isdebug then debug("prospectNextRadius searched " .. glob.performance.prospectCount) end
     chunksToGenerate.empty = nil
     prospectionRequest.requestedChunks = chunksToGenerate
-    if isdebug then debug('requesting to generate chunks for request ' --[[.. table.tostring(prospectionRequest)]]) end
+    if isdebug then debug('requesting to generate chunks for request ' .. table.tostring(prospectionRequest)) end
     for key, chunk in pairs(chunksToGenerate) do
         if isdebug then  debug('generate ' .. table.tostring(chunk)) end
         surface().request_to_generate_chunks({chunk.x*CHUNK_SIZE,chunk.y*CHUNK_SIZE}, 1)
@@ -180,6 +197,7 @@ end
 -- When out of generated blocks, register on_chunk_generated hook and ask for generating the next radius.
 -- in the call back, look up current prospection requests, and if chunk belongs to them check it
 script.on_event(defines.events.on_built_entity, function(event)
+    glob.performance.prospectCount = 0
     if nil ~= string.find(event.created_entity.name, "-map") then
         local searchedResource = string.sub(event.created_entity.name, 1, string.find(event.created_entity.name, "-map") - 1)
         local pos = { x = event.created_entity.position.x, y = event.created_entity.position.y }
@@ -190,12 +208,14 @@ script.on_event(defines.events.on_built_entity, function(event)
             originChunk = { x = math.floor(pos.x / CHUNK_SIZE), y = math.floor(pos.y / CHUNK_SIZE) },
             max_chunk_radius = maxProspectionRadius,
             current_chunk_radius = 0,
-            requestedChunks = {}
+            requestedChunks = {},
         }
         glob.prospect_index = glob.prospect_index + 1
         if isdebug then debug('adding prospection ' .. table.tostring(prospection)) end
         glob.running_prospections[prospection.index] = prospection
+        prospection.underProspection = true
         prospectNextRadius(prospection)
+        prospection.underProspection = false
         addRunningProspection()
 
         --        consume the map after use
@@ -238,7 +258,7 @@ function addProspectionResults(deposit)
     if nil ~= deposit then
         if isdebug then debug(deposit.name .. ' deposit position ' .. table.tostring(deposit.position)) end
     else
-        debug('addProspectionResults deposit==nil')
+        if isdebug then debug('addProspectionResults deposit==nil') end
         return
     end
     local alreadySurveyed = false
@@ -253,7 +273,7 @@ function addProspectionResults(deposit)
             for _, position in ipairs(depositTiles) do
                 --                 worst case, dist of 2 diagonal cells would be < 2 * sqrt(2)
                 if distance(position, deposit.position) < 2.28 then
-                    debug("deposit already surveyed ")
+                    if isdebug then debug("deposit already surveyed ") end
                     alreadySurveyed = true
                     break;
                 end
@@ -266,7 +286,7 @@ function addProspectionResults(deposit)
         if isdebug then debugDepositTiles(getDepositTiles(deposit.position, deposit.name)) end
         --        force showing the results is they were not shown
     else
-        debug("deposit already prospected")
+        if isdebug then debug("deposit already prospected") end
     end
     --    if the UI was previously closed, make it visible
     if glob.flags.resultsVisible == 0 then
@@ -288,13 +308,38 @@ function addFailedProspection(resource, position)
     showProspectionGUI()
 end
 
+script.on_event(defines.events.on_tick, function(event)
+    glob.performance.prospectCount = 0
+    if game.tick % glob.flags.updateFreq == 11 then
+        if isdebug then debug("updating prospection") end
+        showProspectionGUI()
+    end
+    if game.tick % glob.flags.prospectFreq == 11 then
+        if isdebug then  debug("checking for prospections to resume") end
+        for i,request in pairs(glob.running_prospections) do
+            if  isTableEmpty(request.requestedChunks) and not request.underProspection then
+                if isdebug then debug("found a prospection to resume") end
+                request.underProspection = true
+                prospectNextRadius(request)
+                request.underProspection = false
+                if glob.performance.prospectCount > glob.performance.maxProspectPerBatch then break end
+            end
+        end
+    end
+end)
+
+
 function showProspectionGUI()
+    if isdebug then debug(table.tostring(glob)) end
     if glob.flags.resultsVisible == 1 then
         if game.player.gui.left.geologyFrame ~= nil then game.player.gui.left.geologyFrame.destroy() end
         local rootFrame = game.player.gui.left.add { type = "frame", name = "geologyFrame", caption = { "geologyCaption" }, direction = "vertical" }
         rootFrame.add { type = "flow", name = "geologyFlow", direction = "horizontal" }
         rootFrame.geologyFlow.add { type = "button", name = "geologyMin", caption = { "minButtonCaption" }, style = "smallerButtonFont" }
         rootFrame.geologyFlow.add { type = "button", name = "geologyClose", caption = { "geologyClose" }, style = "smallerButtonFont" }
+        rootFrame.geologyFlow.add { type = "button", name = "geologyIncProspects", caption = { "geologyIncProspects" }, style = "smallerButtonFont" }
+        rootFrame.geologyFlow.add { type = "button", name = "geologyDecProspects", caption = { "geologyDecProspects" }, style = "smallerButtonFont" }
+        rootFrame.geologyFlow.add { type = "label", name = "geologyMaxProspects", caption =  ''.. glob.performance.maxProspectPerBatch }
 
         local opt = glob.flags
         if (#glob.prospectionresults > 0) then
@@ -328,16 +373,16 @@ function showProspectionGUI()
                 failedFrame.prospectionsTable.add { type = "button", name = "failedRemoveButton" .. i, caption = { "depositRemoveButtonCaption" }, style = "smallerButtonFont" }
             end
         end
-        if #glob.running_prospections > 0 then
+        if not isTableEmpty(glob.running_prospections) then
             local sum = 1 --[[ resource ]] + 1 --[[radius]] + 1 --[[ remove button]]
             local runningFrame = rootFrame.add { type = "frame", name = "runningTable", caption = { "running" } }
             runningFrame.add { type = "table", name = "prospectionsTable", colspan = sum }
             runningFrame.prospectionsTable.add { type = "label", name = "prospectionTypeLabelHead", caption = { "prospectionTypeLabelHead" } }
             runningFrame.prospectionsTable.add { type = "label", name = "prospectionRadiusLabelHead", caption = { "prospectionRadiusLabelHead" } }
             runningFrame.prospectionsTable.add { type = "label", name = "geologyDummy", caption = " " } --[[remove button]]
-            for i, prospection in ipairs(glob.running_prospections) do
+            for i, prospection in pairs(glob.running_prospections) do
                 runningFrame.prospectionsTable.add { type = "label", name = "prospectionTypeLabel" .. i, caption = game.get_item_prototype(prospection.prospecting).localised_name }
-                runningFrame.prospectionsTable.add { type = "label", name = "prospectionRadiusLabel" .. i, caption = "" .. prospection.current_chunk_radius }
+                runningFrame.prospectionsTable.add { type = "label", name = "prospectionRadiusLabel" .. i, caption = "" .. CHUNK_SIZE*prospection.current_chunk_radius }
                 runningFrame.prospectionsTable.add { type = "button", name = "runningRemoveButton" .. i, caption = { "cancelProspectionButtonCaption" }, style = "smallerButtonFont" }
             end
         end
@@ -352,7 +397,11 @@ function showProspectionGUI()
 end
 
 script.on_event(defines.events.on_gui_click, function(event)
-    if string.find(event.element.name, "depositRemoveButton") ~= nil then
+    if string.find(event.element.name, "geologyIncProspects") ~= nil then
+        glob.performance.maxProspectPerBatch = glob.performance.maxProspectPerBatch+10
+    elseif string.find(event.element.name, "geologyDecProspects") ~= nil then
+        glob.performance.maxProspectPerBatch = math.max(10,glob.performance.maxProspectPerBatch+10)
+    elseif string.find(event.element.name, "depositRemoveButton") ~= nil then
         local txt, cnt = string.gsub(event.element.name, "depositRemoveButton", "")
         if isdebug then debug("removing index " .. cnt) end
         table.remove(glob.prospectionresults, tonumber(cnt))
@@ -365,7 +414,7 @@ script.on_event(defines.events.on_gui_click, function(event)
     elseif string.find(event.element.name, "runningRemoveButton") ~= nil then
         local txt, cnt = string.gsub(event.element.name, "runningRemoveButton", "")
         if isdebug then debug("removing index " .. cnt) end
-        table.remove(glob.running_prospections, tonumber(cnt))
+        glob.running_prospections[cnt] = nil
         showProspectionGUI()
     elseif string.find(event.element.name, "failedRemoveButton") ~= nil then
         local txt, cnt = string.gsub(event.element.name, "depositRemoveButton", "")
@@ -384,12 +433,6 @@ script.on_event(defines.events.on_gui_click, function(event)
         game.player.gui.left.geologyFrame.destroy()
         --        glob.prospectionresults = {}
         glob.flags.resultsVisible = 0
-    end
-end)
-script.on_event(defines.events.on_tick, function(event)
-    if game.tick % glob.flags.updateFreq == 11 then
-        debug("updating prospection")
-        showProspectionGUI()
     end
 end)
 
@@ -453,4 +496,39 @@ function inList(pos, list)
         end
     end
     return false
+end
+function table.val_to_str(v)
+    if "string" == type(v) then
+        v = string.gsub(v, "\n", "\\n")
+        if string.match(string.gsub(v, "[^'\"]", ""), '^"+$') then
+            return "'" .. v .. "'"
+        end
+        return '"' .. string.gsub(v, '"', '\\"') .. '"'
+    else
+        return "table" == type(v) and table.tostring(v) or
+                tostring(v)
+    end
+end
+
+function table.key_to_str(k)
+    if "string" == type(k) and string.match(k, "^[_%a][_%a%d]*$") then
+        return k
+    else
+        return "[" .. table.val_to_str(k) .. "]"
+    end
+end
+
+function table.tostring(tbl)
+    local result, done = {}, {}
+    for k, v in ipairs(tbl) do
+        table.insert(result, table.val_to_str(v))
+        done[k] = true
+    end
+    for k, v in pairs(tbl) do
+        if not done[k] then
+            table.insert(result,
+                table.key_to_str(k) .. "=" .. table.val_to_str(v))
+        end
+    end
+    return "{" .. table.concat(result, ",") .. "}"
 end
